@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — La Nueva Era</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ===== Estilos de respaldo para los modales =====
+   Estos estilos garantizan que los modales se vean
+   aunque style.css no tenga definidas estas clases.
+   Si tu style.css ya las define, estos solo completan
+   lo que falte (position/z-index/fondo). */
+.modal-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-box{
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-actions{
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.foto-actual{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.foto-actual img{
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+</style>
+</head>
+<body class="dash-shell">
+
+<div id="loginView" class="login-box">
+  <h2>Acceso administrativo</h2>
+  <p class="hint">Solo directiva: director general, sub directoras y guía de mujeres.</p>
+  <div class="field">
+    <label>Clave de acceso</label>
+    <input type="password" id="passInput" placeholder="••••••••">
+  </div>
+  <button class="btn btn-gold" style="width:100%;justify-content:center;" onclick="intentarLogin()">Ingresar</button>
+  <p id="loginMsg" class="status-msg"></p>
+</div>
+
+<div id="panelView" style="display:none;">
+  <div class="dash-header">
+    <div class="brand"><span class="dot"></span> LA NUEVA ERA — Panel</div>
+    <div>
+      <a href="index.html" class="btn btn-outline" style="padding:8px 16px;font-size:12px;">Ver landing</a>
+      <button class="btn btn-outline" style="padding:8px 16px;font-size:12px;" onclick="cerrarSesion()">Salir</button>
+    </div>
+  </div>
+
+  <div class="dash-body">
+
+    <div class="card">
+      <h3>Agregar integrante</h3>
+      <p class="hint">Selecciona una foto desde tu computadora.</p>
+      <div class="grid-2">
+        <div class="field">
+          <label>Nombre completo</label>
+          <input type="text" id="fNombre" placeholder="Ej. Jhosia Guerrero">
+        </div>
+        <div class="field">
+          <label>Cargo</label>
+          <select id="fCargo">
+            <option>Director General</option>
+            <option>Sub Directora</option>
+            <option>Guía de Mujeres</option>
+            <option>Bailarín/a</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Fecha de cumpleaños</label>
+          <input type="date" id="fCumple">
+        </div>
+        <div class="field">
+          <label>Foto del integrante</label>
+          <input type="file" id="fFoto" accept="image/*">
+          <small class="hint">Selecciona una foto desde tu computadora.</small>
+        </div>
+      </div>
+      <div class="field">
+        <label>WhatsApp del integrante (opcional, con código de país, ej. 51987654321)</label>
+        <input type="text" id="fWhats" placeholder="51987654321">
+      </div>
+      <button class="btn btn-gold" onclick="guardarIntegrante()">Guardar integrante</button>
+      <p id="guardarMsg" class="status-msg"></p>
+    </div>
+
+    <div class="card">
+      <h3>Integrantes cargados</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Foto</th><th>Nombre</th><th>Cargo</th><th>Cumpleaños</th><th></th></tr>
+          </thead>
+          <tbody id="tablaBody">
+            <tr><td colspan="5" class="hint">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Aviso automático de cumpleaños</h3>
+      <p class="hint">
+        Cada día, un disparador de Google Apps Script revisa esta lista.
+        Si algún integrante cumple años hoy, se envía automáticamente un WhatsApp
+        al número <b>902242903</b> avisando, y si el integrante tiene su propio WhatsApp
+        cargado, también recibe su mensaje de felicitación. Configura el disparador
+        una sola vez siguiendo el <code>README.md</code>.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- =========================
+     MODAL EDITAR
+========================= -->
+<div id="modalEditar" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>Editar integrante</h3>
+
+    <input type="hidden" id="eId">
+    <!-- guarda la URL/base64 de la foto actual; el file input NO se puede precargar -->
+    <input type="hidden" id="eFotoActual">
+
+    <div class="field">
+      <label>Nombre completo</label>
+      <input type="text" id="eNombre">
+    </div>
+
+    <div class="field">
+      <label>Cargo</label>
+      <select id="eCargo">
+        <option>Director General</option>
+        <option>Sub Directora</option>
+        <option>Guía de Mujeres</option>
+        <option>Bailarín/a</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Fecha de cumpleaños</label>
+      <input type="date" id="eCumple">
+    </div>
+
+    <div class="field">
+      <label>Foto</label>
+      <div class="foto-actual" id="eFotoActualPreview" style="display:none;">
+        <img id="eFotoActualImg" src="">
+        <span class="hint">Foto actual (elige un archivo solo si quieres reemplazarla)</span>
+      </div>
+      <input type="file" id="eFoto" accept="image/*">
+    </div>
+
+    <div class="field">
+      <label>WhatsApp</label>
+      <input type="text" id="eWhats">
+    </div>
+
+    <p id="editarMsg" class="status-msg"></p>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModalEditar()">Cancelar</button>
+      <button class="btn btn-gold" onclick="guardarEdicion()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- =========================
+     MODAL ELIMINAR
+========================= -->
+<div id="modalEliminar" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>Eliminar integrante</h3>
+    <p id="eliminarTexto">Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModalEliminar()">Cancelar</button>
+      <button class="btn btn-gold" onclick="confirmarEliminar()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+function intentarLogin(){
+  const val = document.getElementById('passInput').value;
+  const msg = document.getElementById('loginMsg');
+  if(val === DASH_PASSWORD){
+    sessionStorage.setItem('nuevaera_auth','1');
+    mostrarPanel();
+  }else{
+    msg.textContent = "Clave incorrecta.";
+    msg.className = "status-msg err";
+  }
+}
+function cerrarSesion(){
+  sessionStorage.removeItem('nuevaera_auth');
+  location.reload();
+}
+function mostrarPanel(){
+  document.getElementById('loginView').style.display='none';
+  document.getElementById('panelView').style.display='block';
+  cargarTabla();
+}
+if(sessionStorage.getItem('nuevaera_auth')==='1'){ mostrarPanel(); }
+
+function backendListo(){
+  if(APPS_SCRIPT_URL.includes("PEGA_AQUI")){
+    alert("Todavía no conectaste el backend de Google Apps Script. Sigue el README.md.");
+    return false;
+  }
+  return true;
+}
+
+// Convierte un <input type="file"> en base64 (dataURL) para poder enviarlo al backend.
+// Devuelve "" si no se seleccionó ningún archivo.
+function leerArchivoComoBase64(inputEl){
+  return new Promise((resolve, reject) => {
+    const file = inputEl.files[0];
+    if(!file){ resolve(""); return; }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result); // ej: "data:image/png;base64,...."
+    reader.onerror = () => reject(new Error("No se pudo leer la foto."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function guardarIntegrante(){
+  if(!backendListo()) return;
+  const nombre = document.getElementById('fNombre').value.trim();
+  const cargo = document.getElementById('fCargo').value;
+  const cumpleanos = document.getElementById('fCumple').value;
+  const whatsapp = document.getElementById('fWhats').value.trim();
+  const msg = document.getElementById('guardarMsg');
+
+  if(!nombre || !cumpleanos){
+    msg.textContent = "Nombre y fecha de cumpleaños son obligatorios.";
+    msg.className = "status-msg err";
+    return;
+  }
+  msg.textContent = "Guardando…";
+  msg.className = "status-msg";
+
+  try{
+    const foto = await leerArchivoComoBase64(document.getElementById('fFoto'));
+
+    await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {"Content-Type":"text/plain"},
+      body: JSON.stringify({action:"crear", nombre, cargo, cumpleanos, foto, whatsapp})
+    });
+    msg.textContent = "Integrante guardado.";
+    msg.className = "status-msg ok";
+    document.getElementById('fNombre').value = "";
+    document.getElementById('fFoto').value = "";
+    document.getElementById('fWhats').value = "";
+    cargarTabla();
+  }catch(e){
+    msg.textContent = "Error al guardar. Revisa la URL del backend.";
+    msg.className = "status-msg err";
+  }
+}
+
+async function cargarTabla(){
+  if(!APPS_SCRIPT_URL.includes("PEGA_AQUI")){
+    try{
+      const res = await fetch(`${APPS_SCRIPT_URL}?action=listar`);
+      const data = await res.json();
+      pintarTabla(data.integrantes || []);
+    }catch(e){
+      document.getElementById('tablaBody').innerHTML =
+        `<tr><td colspan="5" class="hint">No se pudo conectar al backend.</td></tr>`;
+    }
+  }else{
+    document.getElementById('tablaBody').innerHTML =
+      `<tr><td colspan="5" class="hint">Conecta el backend en config.js para ver la lista.</td></tr>`;
+  }
+}
+
+let integrantesCache = [];
+
+function pintarTabla(lista){
+  integrantesCache = lista;
+  const body = document.getElementById('tablaBody');
+  if(lista.length === 0){
+    body.innerHTML = `<tr><td colspan="5" class="hint">Todavía no hay integrantes.</td></tr>`;
+    return;
+  }
+  body.innerHTML = lista.map(m => {
+    const [y,mo,d] = (m.cumpleanos||"").split("-");
+    const fecha = mo && d ? `${d}/${mo}/${y}` : "";
+    const foto = m.foto ? `<img src="${m.foto}">` : "—";
+    return `<tr>
+      <td>${foto}</td>
+      <td>${m.nombre}</td>
+      <td>${m.cargo}</td>
+      <td>${fecha}</td>
+      <td class="row-actions">
+        <button onclick="abrirModalEditar('${m.id}')">Editar</button>
+        <button onclick="eliminarIntegrante('${m.id}')">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function abrirModalEditar(id){
+  const m = integrantesCache.find(x => x.id === id);
+  if(!m) return;
+
+  document.getElementById('eId').value = m.id;
+  document.getElementById('eNombre').value = m.nombre || "";
+  document.getElementById('eCargo').value = m.cargo || "Director General";
+  document.getElementById('eCumple').value = m.cumpleanos || "";
+  document.getElementById('eWhats').value = m.whatsapp || "";
+  document.getElementById('editarMsg').textContent = "";
+
+  // El <input type="file"> nunca se puede precargar con un valor por JS.
+  // Por eso guardamos la foto actual aparte y la mostramos como vista previa.
+  document.getElementById('eFoto').value = "";
+  document.getElementById('eFotoActual').value = m.foto || "";
+  const preview = document.getElementById('eFotoActualPreview');
+  const img = document.getElementById('eFotoActualImg');
+  if(m.foto){
+    img.src = m.foto;
+    preview.style.display = "flex";
+  }else{
+    preview.style.display = "none";
+  }
+
+  document.getElementById('modalEditar').style.display = "flex";
+}
+
+function cerrarModalEditar(){
+  document.getElementById('modalEditar').style.display = "none";
+}
+
+async function guardarEdicion(){
+  if(!backendListo()) return;
+  const id = document.getElementById('eId').value;
+  const nombre = document.getElementById('eNombre').value.trim();
+  const cargo = document.getElementById('eCargo').value;
+  const cumpleanos = document.getElementById('eCumple').value;
+  const whatsapp = document.getElementById('eWhats').value.trim();
+  const msg = document.getElementById('editarMsg');
+
+  if(!nombre || !cumpleanos){
+    msg.textContent = "Nombre y fecha de cumpleaños son obligatorios.";
+    msg.className = "status-msg err";
+    return;
+  }
+  msg.textContent = "Guardando…";
+  msg.className = "status-msg";
+
+  try{
+    const nuevaFoto = await leerArchivoComoBase64(document.getElementById('eFoto'));
+    const foto = nuevaFoto || document.getElementById('eFotoActual').value;
+
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {"Content-Type":"text/plain"},
+      body: JSON.stringify({action:"editar", id, nombre, cargo, cumpleanos, foto, whatsapp})
+    });
+    const data = await res.json();
+
+    if(!data.ok){
+      // Aquí verás el error REAL que manda el backend
+      msg.textContent = "Error: " + (data.error || "desconocido");
+      msg.className = "status-msg err";
+      console.error("Error del backend:", data.error);
+      return;
+    }
+
+    msg.textContent = "Cambios guardados.";
+    msg.className = "status-msg ok";
+    cargarTabla();
+    setTimeout(cerrarModalEditar, 700);
+  }catch(e){
+    msg.textContent = "Error de red: " + e.message;
+    msg.className = "status-msg err";
+    console.error(e);
+  }
+}
+function eliminarIntegrante(id){
+  if(!backendListo()) return;
+  const m = integrantesCache.find(x => x.id === id);
+  idAEliminar = id;
+  document.getElementById('eliminarTexto').textContent =
+    m ? `Vas a eliminar a "${m.nombre}". Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer.";
+  document.getElementById('modalEliminar').style.display = "flex";
+}
+
+function cerrarModalEliminar(){
+  document.getElementById('modalEliminar').style.display = "none";
+  idAEliminar = null;
+}
+
+async function confirmarEliminar(){
+  if(!idAEliminar) return;
+  if(!backendListo()) return;
+  await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: {"Content-Type":"text/plain"},
+    body: JSON.stringify({action:"eliminar", id: idAEliminar})
+  });
+  cerrarModalEliminar();
+  cargarTabla();
+}
+</script>
+</body>
+</html>
